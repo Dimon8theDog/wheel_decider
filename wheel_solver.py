@@ -599,8 +599,15 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
                 break
 
         if not found:
-            # Fall back: accept the closest we got
-            pass
+            ev_warning = (
+                "Rounded probabilities produce EV €%.2f, outside target range "
+                "[€%.2f, €%.2f]. Try widening the undershoot range or adjusting "
+                "sector values." % (total_ev, ev_low, ev_high)
+            )
+        else:
+            ev_warning = None
+    else:
+        ev_warning = None
 
     # ---- Map back to original sector order --------------------------------
     pmap = {active_idx[j]: rounded_probs[j] for j in range(n)}
@@ -616,6 +623,9 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
             "disabled": s.get("disabled", False),
             "probability": prob,
         })
+
+    if ev_warning:
+        return result, total_ev, "no_solution", ev_warning
 
     return result, total_ev, "ok", ""
 

@@ -26,14 +26,18 @@ FS_RATE = 0.20
 MAX_FS = 200
 MAX_FS_EUR = MAX_FS * FS_RATE   # €40
 
+HB_FS_RATE = 0.50
+MAX_HB_FS = 100
+MAX_HB_FS_EUR = MAX_HB_FS * HB_FS_RATE   # €50
+
 NICE_FS = [5, 10, 15, 20, 25, 50, 75, 100, 125, 150, 175, 200]
+NICE_HB_FS = [5, 10, 15, 20, 25, 50, 75, 100]
 
 MIN_SECTORS = 3
 MAX_SECTORS = 12
 DEFAULT_NUM_SECTORS = 6
 DEFAULT_SPREAD = 5
-
-DEFAULT_TARGETS = [5, 10, 20, 35, 65]
+DEFAULT_DISABLED = 1
 
 
 # ---------------------------------------------------------------------------
@@ -42,7 +46,7 @@ DEFAULT_TARGETS = [5, 10, 20, 35, 65]
 def _spread_to_ratios(spread):
     """Convert a spread value (1–10) to generation parameters.
 
-    Returns (min_ratio, max_active_ratio, disabled_ratio).
+    Returns (min_ratio, max_ratio).
 
     spread=1  (tight):  rewards ≈ 0.70x – 1.30x target
     spread=5  (default): rewards ≈ 0.20x – 3.0x target
@@ -52,38 +56,31 @@ def _spread_to_ratios(spread):
     # Log-interpolate between tight and wide endpoints
     min_r = 0.70 * (0.05 / 0.70) ** t     # 0.70 → 0.05
     max_r = 1.30 * (6.00 / 1.30) ** t     # 1.30 → 6.00
-    dis_r = max_r * 1.7                    # aspirational
-    return min_r, max_r, dis_r
+    return min_r, max_r
 
 
 # ---------------------------------------------------------------------------
 # Auto-generation of sector rewards
 # ---------------------------------------------------------------------------
-def _compute_ratios(num_sectors, min_ratio=0.20, max_active_ratio=3.0,
-                    disabled_ratio=5.0):
+def _compute_ratios(num_sectors, min_ratio=0.20, max_ratio=3.0):
     """Value-multiplier ratios for *num_sectors* sectors.
 
-    Active sectors are log-spaced from *min_ratio* to *max_active_ratio*.
-    Last sector is disabled at *disabled_ratio*.
+    All sectors are log-spaced from *min_ratio* to *max_ratio*.
     """
-    num_active = num_sectors - 1
-    if num_active <= 0:
-        return [disabled_ratio]
-    if num_active == 1:
-        return [min(1.0, max_active_ratio), disabled_ratio]
+    if num_sectors <= 0:
+        return []
+    if num_sectors == 1:
+        return [min(1.0, max_ratio)]
 
-    if max_active_ratio <= min_ratio:
-        active = [
-            min_ratio + (max_active_ratio - min_ratio) * i / (num_active - 1)
-            for i in range(num_active)
+    if max_ratio <= min_ratio:
+        return [
+            min_ratio + (max_ratio - min_ratio) * i / (num_sectors - 1)
+            for i in range(num_sectors)
         ]
-    else:
-        active = [
-            min_ratio * (max_active_ratio / min_ratio) ** (i / (num_active - 1))
-            for i in range(num_active)
-        ]
-    active.append(disabled_ratio)
-    return active
+    return [
+        min_ratio * (max_ratio / min_ratio) ** (i / (num_sectors - 1))
+        for i in range(num_sectors)
+    ]
 
 
 def _snap_to_fs(raw_eur, min_above, max_value=None):
@@ -99,6 +96,21 @@ def _snap_to_fs(raw_eur, min_above, max_value=None):
         return None, None
     best_fs = min(candidates, key=lambda x: x[1])[0]
     return best_fs * FS_RATE, f"{best_fs} FS"
+
+
+def _snap_to_hb_fs(raw_eur, min_above, max_value=None):
+    """Nearest nice high-bet FS count → (eur_value, label) or (None, None)."""
+    target_fs = raw_eur / HB_FS_RATE
+    candidates = [
+        (fs, abs(fs - target_fs))
+        for fs in NICE_HB_FS
+        if fs * HB_FS_RATE > min_above
+        and (max_value is None or fs * HB_FS_RATE <= max_value)
+    ]
+    if not candidates:
+        return None, None
+    best_fs = min(candidates, key=lambda x: x[1])[0]
+    return best_fs * HB_FS_RATE, f"{best_fs} HB FS"
 
 
 def _snap_to_eur(raw_eur, min_above, max_value=None):
@@ -127,38 +139,48 @@ def _snap_to_eur(raw_eur, min_above, max_value=None):
 
 
 def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
-                     spread=DEFAULT_SPREAD):
+                     spread=DEFAULT_SPREAD, num_disabled=DEFAULT_DISABLED):
     """Auto-generate sector rewards for a given bonus cost and spread.
 
     Args:
-        target:      Bonus cost in EUR.
-        num_sectors:  Total sectors (last one is disabled).
-        spread:      1–10 controlling how far rewards deviate from the target.
-                     1 = tight (rewards ≈ target), 10 = very wide range.
+        target:       Bonus cost in EUR.
+        num_sectors:  Total sectors.
+        spread:       1–10 controlling how far rewards deviate from the target.
+                      1 = tight (rewards ≈ target), 10 = very wide range.
+        num_disabled: How many sectors to mark as disabled (highest-value ones).
     """
-    min_ratio, max_active_ratio, disabled_ratio = _spread_to_ratios(spread)
-    ratios = _compute_ratios(num_sectors, min_ratio, max_active_ratio,
-                             disabled_ratio)
-    fs_threshold = min(target, MAX_FS_EUR)
+    min_ratio, max_ratio = _spread_to_ratios(spread)
+    ratios = _compute_ratios(num_sectors, min_ratio, max_ratio)
+    fs_threshold = min(target * 0.5, MAX_FS_EUR)
+    hb_threshold = min(target * 1.0, MAX_HB_FS_EUR)
     sectors = []
     prev_val = 0.0
 
-    for i, ratio in enumerate(ratios):
+    for ratio in ratios:
         raw = target * ratio
-        disabled = (i == len(ratios) - 1)
 
         val, label = None, None
-        if raw <= fs_threshold and not disabled:
+        if raw <= fs_threshold:
             val, label = _snap_to_fs(raw, prev_val)
+        if val is None and raw <= hb_threshold:
+            val, label = _snap_to_hb_fs(raw, prev_val)
         if val is None:
             val, label = _snap_to_eur(raw, prev_val)
         if val is None:
             val = max(raw, prev_val + 1)
-            label = (f"\u20ac{int(val)}" if val == int(val)
+            label = (f"\u20ac{int(val)}" if float(val).is_integer()
                      else f"\u20ac{val:.2f}")
 
-        sectors.append({"label": label, "value": val, "disabled": disabled})
+        sectors.append({"label": label, "value": val, "disabled": False})
         prev_val = val
+
+    # Mark the highest-value sectors as disabled
+    num_disabled = max(0, min(num_disabled, num_sectors - 1))
+    if num_disabled > 0:
+        by_value = sorted(range(len(sectors)),
+                          key=lambda i: sectors[i]["value"], reverse=True)
+        for i in range(num_disabled):
+            sectors[by_value[i]]["disabled"] = True
 
     return sectors
 
@@ -269,6 +291,13 @@ class WheelSolverApp(tk.Tk):
         sb.pack(side=tk.LEFT, padx=(4, 16))
         sb.bind("<Return>", lambda e: self._on_sector_count_change())
 
+        ttk.Label(inp, text="Disabled:").pack(side=tk.LEFT)
+        self._num_disabled_var = tk.IntVar(value=DEFAULT_DISABLED)
+        sb_dis = ttk.Spinbox(inp, from_=0, to=MAX_SECTORS - 1,
+                              textvariable=self._num_disabled_var, width=4,
+                              font=("Segoe UI", 10))
+        sb_dis.pack(side=tk.LEFT, padx=(4, 16))
+
         ttk.Label(inp, text="Undershoot:").pack(side=tk.LEFT)
         self._usmin_var = tk.StringVar(value="5")
         ttk.Entry(inp, textvariable=self._usmin_var, width=4).pack(
@@ -278,14 +307,6 @@ class WheelSolverApp(tk.Tk):
         ttk.Entry(inp, textvariable=self._usmax_var, width=4).pack(
             side=tk.LEFT, padx=(0, 4))
         ttk.Label(inp, text="%").pack(side=tk.LEFT)
-
-        # Presets
-        ttk.Label(inp, text="     Presets:", style="Dim.TLabel").pack(
-            side=tk.LEFT, padx=(12, 4))
-        for t in DEFAULT_TARGETS:
-            ttk.Button(inp, text=f"\u20ac{t}",
-                       command=lambda t=t: self._load_preset(t)).pack(
-                side=tk.LEFT, padx=2)
 
         # ── Input row 2 — Reward spread slider ──
         slider_frame = ttk.Frame(self)
@@ -383,7 +404,7 @@ class WheelSolverApp(tk.Tk):
         except (tk.TclError, ValueError):
             self._spread_desc_var.set("")
             return
-        min_r, max_r, _dis = _spread_to_ratios(spread)
+        min_r, max_r = _spread_to_ratios(spread)
         lo = target * min_r
         hi = target * max_r
         self._spread_desc_var.set(
@@ -474,7 +495,7 @@ class WheelSolverApp(tk.Tk):
                 s = sectors[i]
                 row["label"].set(s["label"])
                 row["value"].set(
-                    f"{s['value']:.2f}" if s["value"] != int(s["value"])
+                    f"{s['value']:.2f}" if not float(s["value"]).is_integer()
                     else str(int(s["value"]))
                 )
                 row["disabled"].set(s["disabled"])
@@ -494,13 +515,6 @@ class WheelSolverApp(tk.Tk):
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
-    def _load_preset(self, target):
-        self._target_var.set(str(target))
-        self._num_sectors_var.set(DEFAULT_NUM_SECTORS)
-        self._spread_var.set(DEFAULT_SPREAD)
-        self._show_rows(DEFAULT_NUM_SECTORS)
-        self._generate()
-
     def _generate(self):
         try:
             target = float(self._target_var.get())
@@ -524,7 +538,14 @@ class WheelSolverApp(tk.Tk):
         except (tk.TclError, ValueError):
             spread = DEFAULT_SPREAD
 
-        sectors = generate_sectors(target, num, spread=spread)
+        try:
+            num_disabled = self._num_disabled_var.get()
+        except (tk.TclError, ValueError):
+            num_disabled = DEFAULT_DISABLED
+        num_disabled = max(0, min(num - 1, num_disabled))
+
+        sectors = generate_sectors(target, num, spread=spread,
+                                   num_disabled=num_disabled)
         self._fill_sectors(sectors)
         self._update_spread_desc()
         self._recalculate()
