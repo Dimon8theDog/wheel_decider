@@ -14,7 +14,6 @@ import csv
 import json
 import math
 import sys
-from copy import deepcopy
 from pathlib import Path
 
 try:
