@@ -139,29 +139,48 @@ def _snap_to_eur(raw_eur, min_above, max_value=None):
 
 
 def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
-                     spread=DEFAULT_SPREAD, num_disabled=DEFAULT_DISABLED):
+                     spread=DEFAULT_SPREAD, num_disabled=DEFAULT_DISABLED,
+                     disabled_in_spread=True):
     """Auto-generate sector rewards for a given bonus cost and spread.
 
     Args:
-        target:       Bonus cost in EUR.
-        num_sectors:  Total sectors.
-        spread:       1–10 controlling how far rewards deviate from the target.
-                      1 = tight (rewards ≈ target), 10 = very wide range.
-        num_disabled: How many sectors to mark as disabled (highest-value ones).
+        target:            Bonus cost in EUR.
+        num_sectors:       Total sectors.
+        spread:            1–10 controlling how far rewards deviate from the target.
+                           1 = tight (rewards ≈ target), 10 = very wide range.
+        num_disabled:      How many sectors to mark as disabled (highest-value ones).
+        disabled_in_spread: If True, disabled sectors stay within the spread range.
+                           If False, disabled sectors are aspirational prizes
+                           placed beyond the spread ceiling.
     """
     min_ratio, max_ratio = _spread_to_ratios(spread)
-    ratios = _compute_ratios(num_sectors, min_ratio, max_ratio)
+    num_disabled = max(0, min(num_disabled, num_sectors - 1))
+    num_active = num_sectors - num_disabled
+
+    if disabled_in_spread or num_disabled == 0:
+        # All sectors within the spread
+        ratios = _compute_ratios(num_sectors, min_ratio, max_ratio)
+    else:
+        # Active sectors within spread, disabled ones beyond it
+        ratios = _compute_ratios(num_active, min_ratio, max_ratio)
+        dis_base = max_ratio * 1.4
+        for d in range(num_disabled):
+            ratios.append(dis_base * (1.3 ** d))
+
     fs_threshold = min(target * 0.5, MAX_FS_EUR)
     hb_threshold = min(target * 1.0, MAX_HB_FS_EUR)
-    max_val = target * max_ratio  # absolute ceiling from the spread
+    max_val = target * max_ratio  # spread ceiling
     sectors = []
     prev_val = 0.0
 
     for idx, ratio in enumerate(ratios):
         raw = target * ratio
+        is_disabled = not disabled_in_spread and idx >= num_active
 
-        # Cap: midpoint to next raw value, or the spread ceiling for last
-        if idx < len(ratios) - 1:
+        # Cap within spread for active sectors (or all if disabled_in_spread)
+        if is_disabled:
+            cap = None  # no cap for aspirational prizes
+        elif idx < len(ratios) - 1 and (disabled_in_spread or idx < num_active - 1):
             cap = (raw + target * ratios[idx + 1]) / 2
         else:
             cap = max_val
@@ -175,16 +194,16 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
             val, label = _snap_to_eur(raw, prev_val, max_value=cap)
         if val is None:
             val = max(raw, prev_val + 1)
-            val = min(val, cap)
+            if cap is not None:
+                val = min(val, cap)
             label = (f"\u20ac{int(val)}" if float(val).is_integer()
                      else f"\u20ac{val:.2f}")
 
-        sectors.append({"label": label, "value": val, "disabled": False})
+        sectors.append({"label": label, "value": val, "disabled": is_disabled})
         prev_val = val
 
-    # Mark the highest-value sectors as disabled
-    num_disabled = max(0, min(num_disabled, num_sectors - 1))
-    if num_disabled > 0:
+    # If disabled_in_spread, mark highest-value sectors as disabled
+    if disabled_in_spread and num_disabled > 0:
         by_value = sorted(range(len(sectors)),
                           key=lambda i: sectors[i]["value"], reverse=True)
         for i in range(num_disabled):
@@ -304,7 +323,12 @@ class WheelSolverApp(tk.Tk):
         sb_dis = ttk.Spinbox(inp, from_=0, to=MAX_SECTORS - 1,
                               textvariable=self._num_disabled_var, width=4,
                               font=("Segoe UI", 10))
-        sb_dis.pack(side=tk.LEFT, padx=(4, 16))
+        sb_dis.pack(side=tk.LEFT, padx=(4, 4))
+
+        self._dis_in_spread_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(inp, text="In spread",
+                        variable=self._dis_in_spread_var).pack(
+            side=tk.LEFT, padx=(0, 16))
 
         ttk.Label(inp, text="Undershoot:").pack(side=tk.LEFT)
         self._usmin_var = tk.StringVar(value="5")
@@ -552,8 +576,14 @@ class WheelSolverApp(tk.Tk):
             num_disabled = DEFAULT_DISABLED
         num_disabled = max(0, min(num - 1, num_disabled))
 
+        try:
+            dis_in_spread = self._dis_in_spread_var.get()
+        except (tk.TclError, ValueError):
+            dis_in_spread = True
+
         sectors = generate_sectors(target, num, spread=spread,
-                                   num_disabled=num_disabled)
+                                   num_disabled=num_disabled,
+                                   disabled_in_spread=dis_in_spread)
         self._fill_sectors(sectors)
         self._update_spread_desc()
         self._recalculate()
