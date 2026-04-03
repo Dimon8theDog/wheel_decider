@@ -138,6 +138,39 @@ def _snap_to_eur(raw_eur, min_above, max_value=None):
     return float(eur), f"\u20ac{int(eur)}"
 
 
+def _best_snap(raw_eur):
+    """Snap to the closest nice value across all reward types (FS, HB FS, EUR).
+
+    Returns (value, label).
+    """
+    candidates = []
+
+    # Regular FS options
+    for fs in NICE_FS:
+        val = fs * FS_RATE
+        candidates.append((abs(val - raw_eur), val, f"{fs} FS"))
+
+    # HB FS options
+    for fs in NICE_HB_FS:
+        val = fs * HB_FS_RATE
+        candidates.append((abs(val - raw_eur), val, f"{fs} HB FS"))
+
+    # EUR (round to clean step)
+    if raw_eur <= 50:
+        step = 5
+    elif raw_eur <= 200:
+        step = 10
+    elif raw_eur <= 500:
+        step = 25
+    else:
+        step = 50
+    eur = max(round(raw_eur / step) * step, step)
+    candidates.append((abs(eur - raw_eur), float(eur), f"\u20ac{int(eur)}"))
+
+    best = min(candidates, key=lambda x: x[0])
+    return best[1], best[2]
+
+
 def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
                      spread=DEFAULT_SPREAD, num_disabled=DEFAULT_DISABLED,
                      disabled_in_spread=True):
@@ -164,53 +197,25 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
     if num_disabled == 0:
         dis_ratios = []
     elif disabled_in_spread:
-        # Place disabled at the high end, within the spread
         dis_lo = active_ratios[-1] * 1.15 if active_ratios else max_ratio * 0.8
         dis_ratios = _compute_ratios(num_disabled, dis_lo, max_ratio) \
             if num_disabled > 1 else [max(dis_lo, max_ratio * 0.9)]
     else:
-        # Aspirational: beyond the spread ceiling
         dis_base = max_ratio * 1.4
         dis_ratios = [dis_base * (1.3 ** d) for d in range(num_disabled)]
 
-    ratios = active_ratios + dis_ratios
-
-    fs_threshold = min(target * 0.5, MAX_FS_EUR)
-    hb_threshold = min(target * 1.0, MAX_HB_FS_EUR)
-    max_val = target * max_ratio  # spread ceiling
+    # Snap each sector independently to closest nice value — no forced uniqueness
     sectors = []
-    prev_val = 0.0
+    for ratio in active_ratios:
+        val, label = _best_snap(target * ratio)
+        sectors.append({"label": label, "value": val, "disabled": False})
 
-    for idx, ratio in enumerate(ratios):
-        raw = target * ratio
-        is_disabled = idx >= num_active
+    for ratio in dis_ratios:
+        val, label = _best_snap(target * ratio)
+        sectors.append({"label": label, "value": val, "disabled": True})
 
-        # Cap: active sectors capped within spread, disabled beyond spread uncapped
-        if is_disabled and not disabled_in_spread:
-            cap = None
-        elif idx < len(ratios) - 1:
-            cap = (raw + target * ratios[idx + 1]) / 2
-        elif is_disabled:
-            cap = None  # last disabled sector, no cap needed
-        else:
-            cap = max_val
-
-        val, label = None, None
-        if raw <= fs_threshold:
-            val, label = _snap_to_fs(raw, prev_val, max_value=cap)
-        if val is None and raw <= hb_threshold:
-            val, label = _snap_to_hb_fs(raw, prev_val, max_value=cap)
-        if val is None:
-            val, label = _snap_to_eur(raw, prev_val, max_value=cap)
-        if val is None:
-            val = max(raw, prev_val + 1)
-            if cap is not None:
-                val = min(val, cap)
-            label = (f"\u20ac{int(val)}" if float(val).is_integer()
-                     else f"\u20ac{val:.2f}")
-
-        sectors.append({"label": label, "value": val, "disabled": is_disabled})
-        prev_val = val
+    # Sort by value for clean display
+    sectors.sort(key=lambda s: (s["value"], s["disabled"]))
 
     return sectors
 
