@@ -157,15 +157,23 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
     num_disabled = max(0, min(num_disabled, num_sectors - 1))
     num_active = num_sectors - num_disabled
 
-    if disabled_in_spread or num_disabled == 0:
-        # All sectors within the spread
-        ratios = _compute_ratios(num_sectors, min_ratio, max_ratio)
+    # Active sectors ALWAYS span the full spread range
+    active_ratios = _compute_ratios(num_active, min_ratio, max_ratio)
+
+    # Disabled sectors placed either within or beyond the spread
+    if num_disabled == 0:
+        dis_ratios = []
+    elif disabled_in_spread:
+        # Place disabled at the high end, within the spread
+        dis_lo = active_ratios[-1] * 1.15 if active_ratios else max_ratio * 0.8
+        dis_ratios = _compute_ratios(num_disabled, dis_lo, max_ratio) \
+            if num_disabled > 1 else [max(dis_lo, max_ratio * 0.9)]
     else:
-        # Active sectors within spread, disabled ones beyond it
-        ratios = _compute_ratios(num_active, min_ratio, max_ratio)
+        # Aspirational: beyond the spread ceiling
         dis_base = max_ratio * 1.4
-        for d in range(num_disabled):
-            ratios.append(dis_base * (1.3 ** d))
+        dis_ratios = [dis_base * (1.3 ** d) for d in range(num_disabled)]
+
+    ratios = active_ratios + dis_ratios
 
     fs_threshold = min(target * 0.5, MAX_FS_EUR)
     hb_threshold = min(target * 1.0, MAX_HB_FS_EUR)
@@ -175,13 +183,15 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
 
     for idx, ratio in enumerate(ratios):
         raw = target * ratio
-        is_disabled = not disabled_in_spread and idx >= num_active
+        is_disabled = idx >= num_active
 
-        # Cap within spread for active sectors (or all if disabled_in_spread)
-        if is_disabled:
-            cap = None  # no cap for aspirational prizes
-        elif idx < len(ratios) - 1 and (disabled_in_spread or idx < num_active - 1):
+        # Cap: active sectors capped within spread, disabled beyond spread uncapped
+        if is_disabled and not disabled_in_spread:
+            cap = None
+        elif idx < len(ratios) - 1:
             cap = (raw + target * ratios[idx + 1]) / 2
+        elif is_disabled:
+            cap = None  # last disabled sector, no cap needed
         else:
             cap = max_val
 
@@ -201,13 +211,6 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
 
         sectors.append({"label": label, "value": val, "disabled": is_disabled})
         prev_val = val
-
-    # If disabled_in_spread, mark highest-value sectors as disabled
-    if disabled_in_spread and num_disabled > 0:
-        by_value = sorted(range(len(sectors)),
-                          key=lambda i: sectors[i]["value"], reverse=True)
-        for i in range(num_disabled):
-            sectors[by_value[i]]["disabled"] = True
 
     return sectors
 
