@@ -610,6 +610,8 @@ class WheelSolverApp(tk.Tk):
             self._last_result = None
             return
 
+        solver_warning = msg  # may be non-empty if rounding drifted
+
         cum = 0.0
         ri = 0
         for i in range(num):
@@ -636,13 +638,19 @@ class WheelSolverApp(tk.Tk):
             f"Total EV: \u20ac{ev:.2f}   |   "
             f"Undershoot: {undershoot:.2f}% of \u20ac{target:.2f}"
         )
-        self._summary_lbl.configure(style="Green.TLabel")
-        self._detail_var.set(
+        if solver_warning:
+            self._summary_lbl.configure(style="Red.TLabel")
+        else:
+            self._summary_lbl.configure(style="Green.TLabel")
+        detail = (
             f"Acceptable range: \u20ac{target * (1 - us_max/100):.2f} \u2013 "
             f"\u20ac{target * (1 - us_min/100):.2f}   |   "
             f"Probabilities sum to "
             f"{sum(s['probability'] for s in result_sectors):.2f}%"
         )
+        if solver_warning:
+            detail += f"   |   {solver_warning}"
+        self._detail_var.set(detail)
         self._last_result = (cfg["name"], result_sectors)
 
     def _export_csv(self):

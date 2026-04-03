@@ -625,7 +625,7 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
         })
 
     if ev_warning:
-        return result, total_ev, "no_solution", ev_warning
+        return result, total_ev, "ok", ev_warning
 
     return result, total_ev, "ok", ""
 
