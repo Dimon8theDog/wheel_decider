@@ -48,14 +48,18 @@ def _spread_to_ratios(spread):
 
     Returns (min_ratio, max_ratio).
 
-    spread=1  (tight):  rewards ≈ 0.70x – 1.30x target
-    spread=5  (default): rewards ≈ 0.20x – 3.0x target
+    Uses a squared curve so low spread values stay genuinely tight:
+    spread=1  (tight):  rewards ≈ 0.90x – 1.10x target
+    spread=3:           rewards ≈ 0.75x – 1.25x target
+    spread=5  (default): rewards ≈ 0.50x – 1.75x target
+    spread=7:           rewards ≈ 0.25x – 3.0x target
     spread=10 (wide):   rewards ≈ 0.05x – 6.0x target
     """
     t = max(0.0, min(1.0, (spread - 1) / 9))  # normalise to 0..1
+    t = t ** 2  # squared curve: low spreads stay much tighter
     # Log-interpolate between tight and wide endpoints
-    min_r = 0.70 * (0.05 / 0.70) ** t     # 0.70 → 0.05
-    max_r = 1.30 * (6.00 / 1.30) ** t     # 1.30 → 6.00
+    min_r = 0.90 * (0.05 / 0.90) ** t     # 0.90 → 0.05
+    max_r = 1.10 * (6.00 / 1.10) ** t     # 1.10 → 6.00
     return min_r, max_r
 
 
@@ -142,15 +146,18 @@ def _snap_candidates(raw_eur):
     """All snap options across reward types, sorted by closeness to raw_eur."""
     candidates = []
 
+    # Small bias so EUR is preferred over FS/HB FS at equal distance
+    fs_bias = 0.30
+
     # Regular FS options
     for fs in NICE_FS:
         val = fs * FS_RATE
-        candidates.append((abs(val - raw_eur), val, f"{fs} FS"))
+        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} FS"))
 
     # HB FS options
     for fs in NICE_HB_FS:
         val = fs * HB_FS_RATE
-        candidates.append((abs(val - raw_eur), val, f"{fs} HB FS"))
+        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} HB FS"))
 
     # EUR — generate several nearby round amounts so there are alternatives
     if raw_eur <= 50:
