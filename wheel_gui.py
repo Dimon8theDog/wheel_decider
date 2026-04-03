@@ -153,21 +153,29 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
     ratios = _compute_ratios(num_sectors, min_ratio, max_ratio)
     fs_threshold = min(target * 0.5, MAX_FS_EUR)
     hb_threshold = min(target * 1.0, MAX_HB_FS_EUR)
+    max_val = target * max_ratio  # absolute ceiling from the spread
     sectors = []
     prev_val = 0.0
 
-    for ratio in ratios:
+    for idx, ratio in enumerate(ratios):
         raw = target * ratio
+
+        # Cap: midpoint to next raw value, or the spread ceiling for last
+        if idx < len(ratios) - 1:
+            cap = (raw + target * ratios[idx + 1]) / 2
+        else:
+            cap = max_val
 
         val, label = None, None
         if raw <= fs_threshold:
-            val, label = _snap_to_fs(raw, prev_val)
+            val, label = _snap_to_fs(raw, prev_val, max_value=cap)
         if val is None and raw <= hb_threshold:
-            val, label = _snap_to_hb_fs(raw, prev_val)
+            val, label = _snap_to_hb_fs(raw, prev_val, max_value=cap)
         if val is None:
-            val, label = _snap_to_eur(raw, prev_val)
+            val, label = _snap_to_eur(raw, prev_val, max_value=cap)
         if val is None:
             val = max(raw, prev_val + 1)
+            val = min(val, cap)
             label = (f"\u20ac{int(val)}" if float(val).is_integer()
                      else f"\u20ac{val:.2f}")
 
