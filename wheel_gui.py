@@ -138,11 +138,8 @@ def _snap_to_eur(raw_eur, min_above, max_value=None):
     return float(eur), f"\u20ac{int(eur)}"
 
 
-def _best_snap(raw_eur):
-    """Snap to the closest nice value across all reward types (FS, HB FS, EUR).
-
-    Returns (value, label).
-    """
+def _snap_candidates(raw_eur):
+    """All snap options across reward types, sorted by closeness to raw_eur."""
     candidates = []
 
     # Regular FS options
@@ -155,7 +152,7 @@ def _best_snap(raw_eur):
         val = fs * HB_FS_RATE
         candidates.append((abs(val - raw_eur), val, f"{fs} HB FS"))
 
-    # EUR (round to clean step)
+    # EUR — generate several nearby round amounts so there are alternatives
     if raw_eur <= 50:
         step = 5
     elif raw_eur <= 200:
@@ -164,11 +161,15 @@ def _best_snap(raw_eur):
         step = 25
     else:
         step = 50
-    eur = max(round(raw_eur / step) * step, step)
-    candidates.append((abs(eur - raw_eur), float(eur), f"\u20ac{int(eur)}"))
+    base = max(round(raw_eur / step) * step, step)
+    for offset in [0, -step, step, -2 * step, 2 * step]:
+        eur = base + offset
+        if eur >= step:
+            candidates.append((abs(eur - raw_eur), float(eur),
+                               f"\u20ac{int(eur)}"))
 
-    best = min(candidates, key=lambda x: x[0])
-    return best[1], best[2]
+    candidates.sort(key=lambda x: x[0])
+    return candidates
 
 
 def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
@@ -204,15 +205,25 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
         dis_base = max_ratio * 1.4
         dis_ratios = [dis_base * (1.3 ** d) for d in range(num_disabled)]
 
-    # Snap each sector independently to closest nice value — no forced uniqueness
+    # Snap each sector to closest unused nice value
+    used_labels = set()
     sectors = []
+
     for ratio in active_ratios:
-        val, label = _best_snap(target * ratio)
-        sectors.append({"label": label, "value": val, "disabled": False})
+        candidates = _snap_candidates(target * ratio)
+        for _, val, label in candidates:
+            if label not in used_labels:
+                used_labels.add(label)
+                sectors.append({"label": label, "value": val, "disabled": False})
+                break
 
     for ratio in dis_ratios:
-        val, label = _best_snap(target * ratio)
-        sectors.append({"label": label, "value": val, "disabled": True})
+        candidates = _snap_candidates(target * ratio)
+        for _, val, label in candidates:
+            if label not in used_labels:
+                used_labels.add(label)
+                sectors.append({"label": label, "value": val, "disabled": True})
+                break
 
     # Sort by value for clean display
     sectors.sort(key=lambda s: (s["value"], s["disabled"]))
