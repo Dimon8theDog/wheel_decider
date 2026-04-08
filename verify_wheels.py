@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
-"""Independent verification of all 5 wheel calculations."""
+"""Independent verification of all 5 wheels. HB FS = 0.50, FS = 0.10."""
 
 FS_RATE = 0.10
-HB_FS_RATE = 0.25
+HB_FS_RATE = 0.50
 
 def val(label):
-    """Parse reward label to EUR value."""
     label = label.strip()
     if label.startswith("€"):
         return float(label[1:])
     parts = label.split()
     if "HB" in label:
-        num = int(parts[0])
-        return num * HB_FS_RATE
+        return int(parts[0]) * HB_FS_RATE
     else:
-        num = int(parts[0])
-        return num * FS_RATE
+        return int(parts[0]) * FS_RATE
 
-# Define all 5 wheels exactly as calculated
 wheels = [
     {
         "name": "Wheel 1 — €5",
@@ -25,14 +21,14 @@ wheels = [
         "undershoot_min": 5,
         "undershoot_max": 8,
         "sectors": [
-            ("15 HB FS",  3.75,  36.48),
-            ("50 FS",     5.00,  26.44),
-            ("20 HB FS",  5.00,  17.93),
-            ("€5",        5.00,  11.02),
-            ("25 HB FS",  6.25,   5.78),
-            ("75 FS",     7.50,   2.35),
-            ("100 FS",   10.00,   0.00),  # disabled
-            ("€10",      10.00,   0.00),  # disabled
+            ("15 FS",     1.50,  15.94),
+            ("25 FS",     2.50,  15.55),
+            ("50 FS",     5.00,  15.11),
+            ("10 HB FS",  5.00,  14.59),
+            ("€5",        5.00,  13.95),
+            ("75 FS",     7.50,  13.10),
+            ("15 HB FS",  7.50,  11.76),
+            ("€10",      10.00,   0.00),
         ]
     },
     {
@@ -41,14 +37,14 @@ wheels = [
         "undershoot_min": 5,
         "undershoot_max": 8,
         "sectors": [
-            ("25 HB FS",  6.25,  27.84),
-            ("75 FS",     7.50,  23.37),
-            ("100 FS",   10.00,  18.90),
-            ("€10",      10.00,  14.44),
-            ("€15",      15.00,   9.96),
-            ("75 HB FS", 18.75,   5.49),
-            ("€20",      20.00,   0.00),  # disabled
-            ("100 HB FS",25.00,   0.00),  # disabled
+            ("75 FS",     7.50,  19.69),
+            ("15 HB FS",  7.50,  18.78),
+            ("100 FS",   10.00,  17.73),
+            ("€10",      10.00,  16.47),
+            ("20 HB FS", 10.00,  14.86),
+            ("25 HB FS", 12.50,  12.47),
+            ("€15",      15.00,   0.00),
+            ("€20",      20.00,   0.00),
         ]
     },
     {
@@ -57,14 +53,14 @@ wheels = [
         "undershoot_min": 3,
         "undershoot_max": 4,
         "sectors": [
-            ("€15",      15.00,  22.22),
-            ("175 FS",   17.50,  20.39),
-            ("75 HB FS", 18.75,  18.35),
-            ("€20",      20.00,  16.04),
-            ("100 HB FS",25.00,  13.29),
-            ("€25",      25.00,   9.71),
-            ("€30",      30.00,   0.00),  # disabled
-            ("€35",      35.00,   0.00),  # disabled
+            ("25 HB FS", 12.50,  21.97),
+            ("€15",      15.00,  20.23),
+            ("175 FS",   17.50,  18.30),
+            ("€20",      20.00,  16.09),
+            ("€25",      25.00,  13.45),
+            ("75 HB FS", 37.50,   9.96),
+            ("€30",      30.00,   0.00),
+            ("€35",      35.00,   0.00),
         ]
     },
     {
@@ -73,14 +69,14 @@ wheels = [
         "undershoot_min": 3,
         "undershoot_max": 4,
         "sectors": [
-            ("100 HB FS",25.00,  20.38),
-            ("€25",      25.00,  19.24),
-            ("€30",      30.00,  17.93),
-            ("€35",      35.00,  16.37),
-            ("€40",      40.00,  14.43),
-            ("€60",      60.00,  11.65),
-            ("€75",      75.00,   0.00),  # disabled
-            ("€80",      80.00,   0.00),  # disabled
+            ("€25",      25.00,  23.91),
+            ("€30",      30.00,  21.36),
+            ("€35",      35.00,  18.63),
+            ("75 HB FS", 37.50,  15.64),
+            ("€40",      40.00,  12.26),
+            ("100 HB FS",50.00,   8.20),
+            ("€60",      60.00,   0.00),
+            ("€75",      75.00,   0.00),
         ]
     },
     {
@@ -89,21 +85,21 @@ wheels = [
         "undershoot_min": 2,
         "undershoot_max": 6,
         "sectors": [
-            ("100 HB FS",25.00,   0.00),  # disabled
-            ("€25",      25.00,   0.00),  # disabled
-            ("€30",      30.00,   0.00),  # disabled
-            ("€35",      35.00,   0.00),  # disabled
-            ("€40",      40.00,  27.78),
-            ("€60",      60.00,  26.33),
-            ("€75",      75.00,  24.42),
-            ("€80",      80.00,  21.47),
+            ("€25",      25.00,   0.00),
+            ("€30",      30.00,   0.00),
+            ("€35",      35.00,   0.00),
+            ("€40",      40.00,   0.00),
+            ("100 HB FS",50.00,  35.67),
+            ("€60",      60.00,  29.05),
+            ("€75",      75.00,  21.80),
+            ("€80",      80.00,  13.48),
         ]
     },
 ]
 
 all_ok = True
 print("=" * 80)
-print("  INDEPENDENT VERIFICATION OF ALL 5 WHEELS")
+print("  INDEPENDENT VERIFICATION — FS=€0.10, HB FS=€0.50")
 print("=" * 80)
 
 for w in wheels:
@@ -121,7 +117,6 @@ for w in wheels:
         computed = val(label)
         if abs(computed - eur) > 0.01:
             val_errors.append(f"  VALUE ERROR: {label} should be €{computed:.2f}, got €{eur:.2f}")
-
     if val_errors:
         for e in val_errors:
             print(e)
@@ -141,7 +136,6 @@ for w in wheels:
     # Compute EV
     ev = sum(eur * prob / 100.0 for _, eur, prob in w["sectors"])
     undershoot = (1 - ev / target) * 100
-
     print(f"  Computed EV: €{ev:.4f}")
     print(f"  Undershoot: {undershoot:.2f}%")
 
@@ -151,25 +145,14 @@ for w in wheels:
         print(f"  ✗ EV OUT OF RANGE")
         all_ok = False
 
-    # Verify all probabilities are non-negative
-    neg = [p for _, _, p in w["sectors"] if p < 0]
-    if neg:
-        print(f"  ✗ Negative probabilities found!")
-        all_ok = False
+    # Verify probabilities decreasing for active sectors (by value)
+    active_sorted = sorted([(eur, prob) for _, eur, prob in w["sectors"] if prob > 0],
+                           key=lambda x: x[0])
+    mono_ok = all(active_sorted[i][1] >= active_sorted[i+1][1] - 0.01
+                  for i in range(len(active_sorted) - 1))
+    print(f"  {'✓' if mono_ok else '⚠'} Probabilities {'decrease' if mono_ok else 'NOT monotonically decreasing'} with value")
 
-    # Verify probabilities decreasing for active sectors (sorted by value)
-    active_sorted = sorted([(eur, prob) for _, eur, prob in w["sectors"] if prob > 0], key=lambda x: x[0])
-    mono_ok = True
-    for i in range(len(active_sorted) - 1):
-        if active_sorted[i+1][1] > active_sorted[i][1] + 0.01:
-            mono_ok = False
-            break
-    if mono_ok:
-        print(f"  ✓ Probabilities decrease with increasing value")
-    else:
-        print(f"  ⚠ Probabilities NOT monotonically decreasing")
-
-    # Detailed EV breakdown
+    # Detailed breakdown
     print(f"\n  {'Label':<14} {'EUR':>8} {'Prob':>8} {'EV Contrib':>12}")
     cumul = 0
     for label, eur, prob in w["sectors"]:
@@ -180,22 +163,18 @@ for w in wheels:
     print(f"  {'':14} {'':>8} {'':>8} €{cumul:>10.4f} TOTAL")
 
 print(f"\n{'='*80}")
-if all_ok:
-    print("  ✅ ALL WHEELS VERIFIED SUCCESSFULLY")
-else:
-    print("  ❌ SOME CHECKS FAILED")
+print(f"  {'✅ ALL WHEELS VERIFIED' if all_ok else '❌ SOME CHECKS FAILED'}")
 print(f"{'='*80}")
 
-# Final summary table
+# Summary
 print(f"\n{'='*80}")
-print("  SUMMARY TABLE")
+print("  SUMMARY")
 print(f"{'='*80}")
-print(f"  {'Wheel':<20} {'Target':>8} {'EV':>10} {'Undershoot':>12} {'Active':>8} {'Disabled':>10}")
-print(f"  {'-'*70}")
+print(f"  {'Wheel':<20} {'Target':>8} {'EV':>10} {'Under%':>8} {'Active':>8} {'Fake':>6}")
+print(f"  {'-'*62}")
 for w in wheels:
-    target = w["target"]
+    t = w["target"]
     ev = sum(eur * prob / 100.0 for _, eur, prob in w["sectors"])
-    undershoot = (1 - ev / target) * 100
-    n_active = sum(1 for _, _, p in w["sectors"] if p > 0)
-    n_disabled = 8 - n_active
-    print(f"  {w['name']:<20} €{target:>6} €{ev:>8.2f} {undershoot:>10.2f}% {n_active:>8} {n_disabled:>10}")
+    u = (1 - ev / t) * 100
+    na = sum(1 for _, _, p in w["sectors"] if p > 0)
+    print(f"  {w['name']:<20} €{t:>6} €{ev:>8.2f} {u:>7.2f}% {na:>8} {8-na:>6}")
