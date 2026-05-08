@@ -158,7 +158,7 @@ def solve_wheel(wheel_cfg):
         if s.get("disabled", False):
             fixed[i] = 0
         elif "locked_probability" in s:
-            fixed[i] = int(s["locked_probability"])
+            fixed[i] = int(round(s["locked_probability"]))
         else:
             active_idx.append(i)
 
@@ -362,9 +362,11 @@ def _largest_remainder_round(raw_pcts, total, step):
     remainders = [p / step - f for p, f in zip(raw_pcts, floored)]
     diff = slots - sum(floored)
 
-    # Give one extra quantum to the entries with the largest remainders
+    # Give one extra quantum to the entries with the largest remainders.
+    # Clamp to [0, n] in case float drift pushes diff out of bounds.
     indices = sorted(range(len(remainders)), key=lambda i: -remainders[i])
-    for i in range(int(round(diff))):
+    n_extra = max(0, min(len(remainders), int(round(diff))))
+    for i in range(n_extra):
         floored[indices[i]] += 1
 
     return [f * step for f in floored]
@@ -447,6 +449,12 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
 
     if n == 1:
         # Only one active sector — probability = budget, check EV
+        if budget < min_prob:
+            return None, 0.0, "no_solution", (
+                "Probability budget (%.2f%%) is below the minimum %.2f%% "
+                "required for the single active sector."
+                % (budget, min_prob)
+            )
         p = budget
         ev = fixed_ev + p * vals[0] / 100.0
         if ev_low <= ev <= ev_high:

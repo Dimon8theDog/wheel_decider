@@ -30,8 +30,13 @@ HB_FS_RATE = 0.50
 MAX_HB_FS = 100
 MAX_HB_FS_EUR = MAX_HB_FS * HB_FS_RATE   # €50
 
+SS_RATE = 2.00
+MAX_SS = 50
+MAX_SS_EUR = MAX_SS * SS_RATE   # €100
+
 NICE_FS = [5, 10, 15, 20, 25, 50, 75, 100, 125, 150, 175, 200]
 NICE_HB_FS = [5, 10, 15, 20, 25, 50, 75, 100]
+NICE_SS = [5, 10, 15, 20, 25, 30, 40, 50]
 
 MIN_SECTORS = 3
 MAX_SECTORS = 12
@@ -67,12 +72,12 @@ STRINGS = {
         "col_prob": "Prob %",
         "col_ev": "EV Contrib",
         "col_cum": "Cum. EV",
-        "cheat1": "FS = Free Spins (\u20ac0.20/spin)  \u2022  HB FS = High Bet Free Spins (\u20ac0.50/spin)  \u2022  Dis. = visible on wheel but unwinnable (0%)",
+        "cheat1": "FS = Free Spins (\u20ac0.20/spin)  \u2022  HB FS = High Bet (\u20ac0.50/spin)  \u2022  SS = Super Spins (\u20ac2.00/spin)  \u2022  Dis. = visible on wheel but unwinnable (0%)",
         "cheat2": "Undershoot = target margin below bonus cost  \u2022  EV = Expected Value (avg payout per player)  \u2022  Spread = reward value range",
-        "cheat3": "Tip: Type rewards like \"50 FS\", \"25 HB FS\", or \"\u20ac30\" in the Reward column \u2014 EUR values auto-fill on Recalculate.",
+        "cheat3": "Tip: Type rewards like \"50 FS\", \"25 HB FS\", \"10 SS\", or \"\u20ac30\" in the Reward column \u2014 EUR values auto-fill on Recalculate.",
         "err_input": "Bonus cost must be a positive number.",
         "err_bad_value": "Bad value in sector {}: '{}'",
-        "err_min_sectors": "Need at least 2 sectors.",
+        "err_min_sectors": "Need at least 3 sectors.",
         "err_invalid": "Invalid input values.",
         "err_no_solution": "No solution found",
         "err_undershoot": "Undershoot min must be < max.",
@@ -104,12 +109,12 @@ STRINGS = {
         "col_prob": "\u0412\u0435\u0440. %",
         "col_ev": "\u0412\u043a\u043b\u0430\u0434 EV",
         "col_cum": "\u0421\u0443\u043c\u043c. EV",
-        "cheat1": "FS = \u0424\u0440\u0438\u0441\u043f\u0438\u043d\u044b (\u20ac0.20/\u0441\u043f\u0438\u043d)  \u2022  HB FS = \u0424\u0440\u0438\u0441\u043f\u0438\u043d\u044b \u0432\u044b\u0441. \u0441\u0442\u0430\u0432\u043a\u0438 (\u20ac0.50/\u0441\u043f\u0438\u043d)  \u2022  \u041e\u0442\u043a\u043b. = \u0432\u0438\u0434\u043d\u043e, \u043d\u043e 0%",
+        "cheat1": "FS = \u0424\u0440\u0438\u0441\u043f\u0438\u043d\u044b (\u20ac0.20/\u0441\u043f\u0438\u043d)  \u2022  HB FS = \u0412\u044b\u0441. \u0441\u0442\u0430\u0432\u043a\u0430 (\u20ac0.50/\u0441\u043f\u0438\u043d)  \u2022  SS = \u0421\u0443\u043f\u0435\u0440-\u0441\u043f\u0438\u043d\u044b (\u20ac2.00/\u0441\u043f\u0438\u043d)  \u2022  \u041e\u0442\u043a\u043b. = \u0432\u0438\u0434\u043d\u043e, \u043d\u043e 0%",
         "cheat2": "\u041d\u0435\u0434\u043e\u043b\u0451\u0442 = \u043e\u0442\u0441\u0442\u0443\u043f \u043d\u0438\u0436\u0435 \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u0438 \u0431\u043e\u043d\u0443\u0441\u0430  \u2022  EV = \u041e\u0436\u0438\u0434\u0430\u0435\u043c\u0430\u044f \u0432\u044b\u043f\u043b\u0430\u0442\u0430 (\u0441\u0440\u0435\u0434\u043d\u0435\u0435)  \u2022  \u0420\u0430\u0437\u0431\u0440\u043e\u0441 = \u0448\u0438\u0440\u0438\u043d\u0430 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d\u0430",
-        "cheat3": "\u0421\u043e\u0432\u0435\u0442: \u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043d\u0430\u0433\u0440\u0430\u0434\u044b \u043a\u0430\u043a \"50 FS\", \"25 HB FS\" \u0438\u043b\u0438 \"\u20ac30\" \u2014 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u044e\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.",
+        "cheat3": "\u0421\u043e\u0432\u0435\u0442: \u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043d\u0430\u0433\u0440\u0430\u0434\u044b \u043a\u0430\u043a \"50 FS\", \"25 HB FS\", \"10 SS\" \u0438\u043b\u0438 \"\u20ac30\" \u2014 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u044e\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.",
         "err_input": "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0431\u043e\u043d\u0443\u0441\u0430 \u0434\u043e\u043b\u0436\u043d\u0430 \u0431\u044b\u0442\u044c \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u043c \u0447\u0438\u0441\u043b\u043e\u043c.",
         "err_bad_value": "\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0432 \u0441\u0435\u043a\u0442\u043e\u0440\u0435 {}: '{}'",
-        "err_min_sectors": "\u041d\u0443\u0436\u043d\u043e \u043c\u0438\u043d\u0438\u043c\u0443\u043c 2 \u0441\u0435\u043a\u0442\u043e\u0440\u0430.",
+        "err_min_sectors": "\u041d\u0443\u0436\u043d\u043e \u043c\u0438\u043d\u0438\u043c\u0443\u043c 3 \u0441\u0435\u043a\u0442\u043e\u0440\u0430.",
         "err_invalid": "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u0432\u0445\u043e\u0434\u043d\u044b\u0435 \u0434\u0430\u043d\u043d\u044b\u0435.",
         "err_no_solution": "\u0420\u0435\u0448\u0435\u043d\u0438\u0435 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e",
         "err_undershoot": "\u041c\u0438\u043d. \u043d\u0435\u0434\u043e\u043b\u0451\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c < \u043c\u0430\u043a\u0441.",
@@ -154,7 +159,7 @@ def _compute_ratios(num_sectors, min_ratio=0.20, max_ratio=3.0):
 # Reward label parsing
 # ---------------------------------------------------------------------------
 def parse_reward_label(label):
-    """Parse a reward label like '50 FS', '25 HB FS', or '\u20ac30'.
+    """Parse a reward label like '50 FS', '25 HB FS', '10 SS', or '\u20ac30'.
 
     Returns the EUR value as a float, or None if unrecognised.
     """
@@ -165,12 +170,16 @@ def parse_reward_label(label):
     m = re.match(r'^(\d+)\s*HB\s*FS$', label, re.IGNORECASE)
     if m:
         return int(m.group(1)) * HB_FS_RATE
+    # "10 SS"
+    m = re.match(r'^(\d+)\s*SS$', label, re.IGNORECASE)
+    if m:
+        return int(m.group(1)) * SS_RATE
     # "50 FS"
     m = re.match(r'^(\d+)\s*FS$', label, re.IGNORECASE)
     if m:
         return int(m.group(1)) * FS_RATE
     # "\u20ac30" or "EUR30" or "EUR 30"
-    m = re.match(r'^[\u20acEUR]+\s*(\d+(?:\.\d+)?)$', label, re.IGNORECASE)
+    m = re.match(r'^(?:\u20ac|EUR)\s*(\d+(?:\.\d+)?)$', label, re.IGNORECASE)
     if m:
         return float(m.group(1))
     return None
@@ -190,6 +199,9 @@ def _snap_candidates(raw_eur):
     for fs in NICE_HB_FS:
         val = fs * HB_FS_RATE
         candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} HB FS"))
+    for ss in NICE_SS:
+        val = ss * SS_RATE
+        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{ss} SS"))
 
     if raw_eur <= 50:
         step = 5
@@ -226,7 +238,12 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
     if num_disabled == 0:
         dis_ratios = []
     elif disabled_in_spread:
-        dis_lo = active_ratios[-1] * 1.15 if active_ratios else max_ratio * 0.8
+        # Keep disabled ratios within [active_top, max_ratio]; clamp so the
+        # 1.15× nudge doesn't push them past the spread on tight settings.
+        if active_ratios:
+            dis_lo = min(active_ratios[-1] * 1.15, max_ratio)
+        else:
+            dis_lo = max_ratio * 0.8
         dis_ratios = _compute_ratios(num_disabled, dis_lo, max_ratio) \
             if num_disabled > 1 else [max(dis_lo, max_ratio * 0.9)]
     else:
@@ -634,12 +651,17 @@ class WheelSolverApp(tk.Tk):
         if not label:
             return
         parsed = parse_reward_label(label)
-        if parsed is not None:
-            row = self._sector_rows[idx]
-            if float(row["value"].get() or 0) != parsed:
-                row["value"].set(
-                    str(int(parsed)) if float(parsed).is_integer()
-                    else f"{parsed:.2f}")
+        if parsed is None:
+            return
+        row = self._sector_rows[idx]
+        try:
+            current = float(row["value"].get() or 0)
+        except (ValueError, TypeError):
+            current = None
+        if current != parsed:
+            row["value"].set(
+                str(int(parsed)) if float(parsed).is_integer()
+                else f"{parsed:.2f}")
 
     def _show_rows(self, count):
         count = max(MIN_SECTORS, min(MAX_SECTORS, count))
@@ -785,7 +807,7 @@ class WheelSolverApp(tk.Tk):
                 "disabled": row["disabled"].get(),
             })
 
-        if len(sectors) < 2:
+        if len(sectors) < MIN_SECTORS:
             self._summary_var.set(self._t("err_min_sectors"))
             self._summary_lbl.configure(style="Red.TLabel")
             return
