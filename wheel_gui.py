@@ -22,16 +22,49 @@ from wheel_solver import solve_wheel_precise
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-FS_RATE = 0.20
-MAX_FS = 200
-MAX_FS_EUR = MAX_FS * FS_RATE   # €40
+FS_RATE = 0.20      # Free Spins — €/spin
+HB_FS_RATE = 0.50   # High-Bet Free Spins — €/spin
+SS_RATE = 2.00      # Super Spins — €/spin
 
-HB_FS_RATE = 0.50
-MAX_HB_FS = 100
-MAX_HB_FS_EUR = MAX_HB_FS * HB_FS_RATE   # €50
 
-NICE_FS = [5, 10, 15, 20, 25, 50, 75, 100, 125, 150, 175, 200]
-NICE_HB_FS = [5, 10, 15, 20, 25, 50, 75, 100]
+def _nice_counts(max_count):
+    """'Nice-looking' spin counts from 5 up to *max_count* (coarser as they grow)."""
+    counts, c = [], 5
+    while c <= max_count:
+        counts.append(c)
+        if c < 50:
+            c += 5
+        elif c < 200:
+            c += 10
+        elif c < 500:
+            c += 25
+        else:
+            c += 50
+    return counts
+
+
+# Platform cap: no reward grants more than this many spins of any type.
+MAX_SPINS = 300
+
+# Per-family "nice" spin counts, all bounded by MAX_SPINS. Highest EUR value
+# each family can therefore represent: FS €60, HB FS €150, SS €600.
+NICE_FS = _nice_counts(MAX_SPINS)        # €1 .. €60
+NICE_HB_FS = _nice_counts(MAX_SPINS)     # €2.50 .. €150
+NICE_SS = _nice_counts(MAX_SPINS)        # €10 .. €600
+
+# (family-name, €/spin, nice-count table) in cheap → flashy order.
+REWARD_FAMILIES = [
+    ("FS", FS_RATE, NICE_FS),
+    ("HB FS", HB_FS_RATE, NICE_HB_FS),
+    ("SS", SS_RATE, NICE_SS),
+]
+
+MAX_FS = NICE_FS[-1]
+MAX_HB_FS = NICE_HB_FS[-1]
+MAX_SS = NICE_SS[-1]
+MAX_FS_EUR = MAX_FS * FS_RATE
+MAX_HB_FS_EUR = MAX_HB_FS * HB_FS_RATE
+MAX_SS_EUR = MAX_SS * SS_RATE
 
 MIN_SECTORS = 3
 MAX_SECTORS = 12
@@ -67,12 +100,12 @@ STRINGS = {
         "col_prob": "Prob %",
         "col_ev": "EV Contrib",
         "col_cum": "Cum. EV",
-        "cheat1": "FS = Free Spins (\u20ac0.20/spin)  \u2022  HB FS = High Bet Free Spins (\u20ac0.50/spin)  \u2022  Dis. = visible on wheel but unwinnable (0%)",
+        "cheat1": "FS = Free Spins (\u20ac0.20/spin)  \u2022  HB FS = High Bet (\u20ac0.50/spin)  \u2022  SS = Super Spins (\u20ac2.00/spin)  \u2022  Dis. = visible on wheel but unwinnable (0%)",
         "cheat2": "Undershoot = target margin below bonus cost  \u2022  EV = Expected Value (avg payout per player)  \u2022  Spread = reward value range",
-        "cheat3": "Tip: Type rewards like \"50 FS\", \"25 HB FS\", or \"\u20ac30\" in the Reward column \u2014 EUR values auto-fill on Recalculate.",
+        "cheat3": "Tip: Type rewards like \"50 FS\", \"25 HB FS\", \"10 SS\", or \"\u20ac30\" in the Reward column \u2014 EUR values auto-fill on Recalculate.",
         "err_input": "Bonus cost must be a positive number.",
         "err_bad_value": "Bad value in sector {}: '{}'",
-        "err_min_sectors": "Need at least 2 sectors.",
+        "err_min_sectors": "Need at least 3 sectors.",
         "err_invalid": "Invalid input values.",
         "err_no_solution": "No solution found",
         "err_undershoot": "Undershoot min must be < max.",
@@ -104,12 +137,12 @@ STRINGS = {
         "col_prob": "\u0412\u0435\u0440. %",
         "col_ev": "\u0412\u043a\u043b\u0430\u0434 EV",
         "col_cum": "\u0421\u0443\u043c\u043c. EV",
-        "cheat1": "FS = \u0424\u0440\u0438\u0441\u043f\u0438\u043d\u044b (\u20ac0.20/\u0441\u043f\u0438\u043d)  \u2022  HB FS = \u0424\u0440\u0438\u0441\u043f\u0438\u043d\u044b \u0432\u044b\u0441. \u0441\u0442\u0430\u0432\u043a\u0438 (\u20ac0.50/\u0441\u043f\u0438\u043d)  \u2022  \u041e\u0442\u043a\u043b. = \u0432\u0438\u0434\u043d\u043e, \u043d\u043e 0%",
+        "cheat1": "FS = \u0424\u0440\u0438\u0441\u043f\u0438\u043d\u044b (\u20ac0.20/\u0441\u043f\u0438\u043d)  \u2022  HB FS = \u0412\u044b\u0441. \u0441\u0442\u0430\u0432\u043a\u0430 (\u20ac0.50/\u0441\u043f\u0438\u043d)  \u2022  SS = \u0421\u0443\u043f\u0435\u0440-\u0441\u043f\u0438\u043d\u044b (\u20ac2.00/\u0441\u043f\u0438\u043d)  \u2022  \u041e\u0442\u043a\u043b. = \u0432\u0438\u0434\u043d\u043e, \u043d\u043e 0%",
         "cheat2": "\u041d\u0435\u0434\u043e\u043b\u0451\u0442 = \u043e\u0442\u0441\u0442\u0443\u043f \u043d\u0438\u0436\u0435 \u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u0438 \u0431\u043e\u043d\u0443\u0441\u0430  \u2022  EV = \u041e\u0436\u0438\u0434\u0430\u0435\u043c\u0430\u044f \u0432\u044b\u043f\u043b\u0430\u0442\u0430 (\u0441\u0440\u0435\u0434\u043d\u0435\u0435)  \u2022  \u0420\u0430\u0437\u0431\u0440\u043e\u0441 = \u0448\u0438\u0440\u0438\u043d\u0430 \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d\u0430",
-        "cheat3": "\u0421\u043e\u0432\u0435\u0442: \u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043d\u0430\u0433\u0440\u0430\u0434\u044b \u043a\u0430\u043a \"50 FS\", \"25 HB FS\" \u0438\u043b\u0438 \"\u20ac30\" \u2014 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u044e\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.",
+        "cheat3": "\u0421\u043e\u0432\u0435\u0442: \u0412\u0432\u043e\u0434\u0438\u0442\u0435 \u043d\u0430\u0433\u0440\u0430\u0434\u044b \u043a\u0430\u043a \"50 FS\", \"25 HB FS\", \"10 SS\" \u0438\u043b\u0438 \"\u20ac30\" \u2014 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u044e\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438.",
         "err_input": "\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u0431\u043e\u043d\u0443\u0441\u0430 \u0434\u043e\u043b\u0436\u043d\u0430 \u0431\u044b\u0442\u044c \u043f\u043e\u043b\u043e\u0436\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u043c \u0447\u0438\u0441\u043b\u043e\u043c.",
         "err_bad_value": "\u041e\u0448\u0438\u0431\u043a\u0430 \u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u0432 \u0441\u0435\u043a\u0442\u043e\u0440\u0435 {}: '{}'",
-        "err_min_sectors": "\u041d\u0443\u0436\u043d\u043e \u043c\u0438\u043d\u0438\u043c\u0443\u043c 2 \u0441\u0435\u043a\u0442\u043e\u0440\u0430.",
+        "err_min_sectors": "\u041d\u0443\u0436\u043d\u043e \u043c\u0438\u043d\u0438\u043c\u0443\u043c 3 \u0441\u0435\u043a\u0442\u043e\u0440\u0430.",
         "err_invalid": "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0435 \u0432\u0445\u043e\u0434\u043d\u044b\u0435 \u0434\u0430\u043d\u043d\u044b\u0435.",
         "err_no_solution": "\u0420\u0435\u0448\u0435\u043d\u0438\u0435 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e",
         "err_undershoot": "\u041c\u0438\u043d. \u043d\u0435\u0434\u043e\u043b\u0451\u0442 \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c < \u043c\u0430\u043a\u0441.",
@@ -154,7 +187,7 @@ def _compute_ratios(num_sectors, min_ratio=0.20, max_ratio=3.0):
 # Reward label parsing
 # ---------------------------------------------------------------------------
 def parse_reward_label(label):
-    """Parse a reward label like '50 FS', '25 HB FS', or '\u20ac30'.
+    """Parse a reward label like '50 FS', '25 HB FS', '10 SS', or '\u20ac30'.
 
     Returns the EUR value as a float, or None if unrecognised.
     """
@@ -165,12 +198,16 @@ def parse_reward_label(label):
     m = re.match(r'^(\d+)\s*HB\s*FS$', label, re.IGNORECASE)
     if m:
         return int(m.group(1)) * HB_FS_RATE
+    # "10 SS"
+    m = re.match(r'^(\d+)\s*SS$', label, re.IGNORECASE)
+    if m:
+        return int(m.group(1)) * SS_RATE
     # "50 FS"
     m = re.match(r'^(\d+)\s*FS$', label, re.IGNORECASE)
     if m:
         return int(m.group(1)) * FS_RATE
     # "\u20ac30" or "EUR30" or "EUR 30"
-    m = re.match(r'^[\u20acEUR]+\s*(\d+(?:\.\d+)?)$', label, re.IGNORECASE)
+    m = re.match(r'^(?:\u20ac|EUR)\s*(\d+(?:\.\d+)?)$', label, re.IGNORECASE)
     if m:
         return float(m.group(1))
     return None
@@ -180,16 +217,16 @@ def parse_reward_label(label):
 # Snap candidates for auto-generation
 # ---------------------------------------------------------------------------
 def _snap_candidates(raw_eur):
-    """All snap options across reward types, sorted by closeness to raw_eur."""
-    candidates = []
-    fs_bias = 0.30
+    """All snap options across reward families + cash, nearest first.
 
-    for fs in NICE_FS:
-        val = fs * FS_RATE
-        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} FS"))
-    for fs in NICE_HB_FS:
-        val = fs * HB_FS_RATE
-        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} HB FS"))
+    Returns a list of (distance, eur_value, label, family) tuples sorted by
+    distance to *raw_eur*. *family* is one of "FS", "HB FS", "SS", "EUR".
+    """
+    candidates = []
+    for fam, rate, nice in REWARD_FAMILIES:
+        for c in nice:
+            val = c * rate
+            candidates.append((abs(val - raw_eur), val, f"{c} {fam}", fam))
 
     if raw_eur <= 50:
         step = 5
@@ -200,14 +237,30 @@ def _snap_candidates(raw_eur):
     else:
         step = 50
     base = max(round(raw_eur / step) * step, step)
-    for offset in [0, -step, step, -2 * step, 2 * step]:
+    for offset in (0, -step, step, -2 * step, 2 * step):
         eur = base + offset
         if eur >= step:
             candidates.append((abs(eur - raw_eur), float(eur),
-                               f"\u20ac{int(eur)}"))
+                               f"\u20ac{int(eur)}", "EUR"))
 
     candidates.sort(key=lambda x: x[0])
     return candidates
+
+
+def _usable_families(value):
+    """Reward families whose nearest 'nice' amount lands within ~30% of *value*.
+
+    Returned cheap \u2192 flashy, always ending with "EUR" (cash fits anything).
+    Used to decide which families a sector can rotate through without dragging
+    its value too far from the intended spot.
+    """
+    fams = []
+    for fam, rate, nice in REWARD_FAMILIES:
+        best = min(nice, key=lambda c: abs(c * rate - value))
+        if abs(best * rate - value) <= value * 0.30:
+            fams.append(fam)
+    fams.append("EUR")
+    return fams
 
 
 # ---------------------------------------------------------------------------
@@ -216,17 +269,27 @@ def _snap_candidates(raw_eur):
 def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
                      spread=DEFAULT_SPREAD, num_disabled=DEFAULT_DISABLED,
                      disabled_in_spread=True):
-    """Auto-generate sector rewards for a given bonus cost and spread."""
+    """Auto-generate a varied sector pool for a given bonus cost and spread.
+
+    Active sectors are rotated across the reward families (FS / HB FS / SS /
+    cash) that each sector's value can support, so the wheel reads as a busy
+    mix instead of a column of cash amounts.
+    """
     min_ratio, max_ratio = _spread_to_ratios(spread)
     num_disabled = max(0, min(num_disabled, num_sectors - 1))
     num_active = num_sectors - num_disabled
 
-    active_ratios = _compute_ratios(num_active, min_ratio, max_ratio)
+    active_ratios = sorted(_compute_ratios(num_active, min_ratio, max_ratio))
 
     if num_disabled == 0:
         dis_ratios = []
     elif disabled_in_spread:
-        dis_lo = active_ratios[-1] * 1.15 if active_ratios else max_ratio * 0.8
+        # Keep disabled ratios within [active_top, max_ratio]; clamp so the
+        # 1.15× nudge doesn't push them past the spread on tight settings.
+        if active_ratios:
+            dis_lo = min(active_ratios[-1] * 1.15, max_ratio)
+        else:
+            dis_lo = max_ratio * 0.8
         dis_ratios = _compute_ratios(num_disabled, dis_lo, max_ratio) \
             if num_disabled > 1 else [max(dis_lo, max_ratio * 0.9)]
     else:
@@ -236,24 +299,42 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
     used_labels = set()
     sectors = []
 
-    def _pick(ratio, disabled):
-        candidates = _snap_candidates(target * ratio)
-        for _, val, label in candidates:
-            if label not in used_labels:
-                used_labels.add(label)
-                sectors.append({"label": label, "value": val,
-                                "disabled": disabled})
-                return
-        # Fallback: use raw EUR value (bug fix — never skip a sector)
-        raw = target * ratio
-        val = round(raw, 2)
-        label = f"\u20ac{val:.2f}"
-        sectors.append({"label": label, "value": val, "disabled": disabled})
+    def _pick(raw, disabled, prefer):
+        candidates = _snap_candidates(raw)
+        chosen = None
+        if prefer:
+            for _, val, label, fam in candidates:
+                if fam == prefer and label not in used_labels:
+                    chosen = (val, label)
+                    break
+        if chosen is None:
+            for _, val, label, fam in candidates:
+                if label not in used_labels:
+                    chosen = (val, label)
+                    break
+        if chosen is None:
+            # Last resort: raw EUR value -- never skip a sector.
+            v = round(raw, 2)
+            chosen = (v, f"\u20ac{v:.2f}")
+        used_labels.add(chosen[1])
+        sectors.append({"label": chosen[1], "value": chosen[0],
+                        "disabled": disabled})
 
+    # Active sectors: walk cheapest -> priciest, advancing one shared rotation
+    # index so neighbouring sectors land on different reward families.
+    rot = 0
     for ratio in active_ratios:
-        _pick(ratio, False)
-    for ratio in dis_ratios:
-        _pick(ratio, True)
+        raw = target * ratio
+        fams = _usable_families(raw)
+        _pick(raw, False, fams[rot % len(fams)])
+        rot += 1
+
+    # Disabled (aspirational) sectors: lean toward the flashy families.
+    for k, ratio in enumerate(dis_ratios):
+        raw = target * ratio
+        fams = _usable_families(raw)
+        order = [f for f in ("SS", "HB FS", "EUR") if f in fams] or ["EUR"]
+        _pick(raw, True, order[k % len(order)])
 
     sectors.sort(key=lambda s: (s["value"], s["disabled"]))
     return sectors
@@ -634,12 +715,17 @@ class WheelSolverApp(tk.Tk):
         if not label:
             return
         parsed = parse_reward_label(label)
-        if parsed is not None:
-            row = self._sector_rows[idx]
-            if float(row["value"].get() or 0) != parsed:
-                row["value"].set(
-                    str(int(parsed)) if float(parsed).is_integer()
-                    else f"{parsed:.2f}")
+        if parsed is None:
+            return
+        row = self._sector_rows[idx]
+        try:
+            current = float(row["value"].get() or 0)
+        except (ValueError, TypeError):
+            current = None
+        if current != parsed:
+            row["value"].set(
+                str(int(parsed)) if float(parsed).is_integer()
+                else f"{parsed:.2f}")
 
     def _show_rows(self, count):
         count = max(MIN_SECTORS, min(MAX_SECTORS, count))
@@ -785,7 +871,7 @@ class WheelSolverApp(tk.Tk):
                 "disabled": row["disabled"].get(),
             })
 
-        if len(sectors) < 2:
+        if len(sectors) < MIN_SECTORS:
             self._summary_var.set(self._t("err_min_sectors"))
             self._summary_lbl.configure(style="Red.TLabel")
             return
