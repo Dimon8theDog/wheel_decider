@@ -43,11 +43,14 @@ def _nice_counts(max_count):
     return counts
 
 
-# Per-family nice counts. Caps are deliberate: FS stays "small-ish", HB FS
-# mid-range, SS is the headline type that can reach big EUR values.
-NICE_FS = _nice_counts(300)        # €1 .. €60
-NICE_HB_FS = _nice_counts(500)     # €2.50 .. €250
-NICE_SS = _nice_counts(500)        # €10 .. €1000
+# Platform cap: no reward grants more than this many spins of any type.
+MAX_SPINS = 200
+
+# Per-family "nice" spin counts, all bounded by MAX_SPINS. Highest EUR value
+# each family can therefore represent: FS €40, HB FS €100, SS €400.
+NICE_FS = _nice_counts(MAX_SPINS)        # €1 .. €40
+NICE_HB_FS = _nice_counts(MAX_SPINS)     # €2.50 .. €100
+NICE_SS = _nice_counts(MAX_SPINS)        # €10 .. €400
 
 # (family-name, €/spin, nice-count table) in cheap → flashy order.
 REWARD_FAMILIES = [

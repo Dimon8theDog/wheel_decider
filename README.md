@@ -72,6 +72,8 @@ Reward-type rates used by the GUI auto-fill:
 | `HB FS` (High-Bet Free Spins) | €0.50 / spin | `25 HB FS` → €12.50 |
 | `SS` (Super Spins) | €2.00 / spin | `10 SS` → €20 |
 
+Spin rewards are capped at 200 spins, so `FS` ≤ €40, `HB FS` ≤ €100, `SS` ≤ €400. The auto-generator falls back to cash for sectors worth more than a family can represent.
+
 ## How It Works
 
 **Integer solver** (`solve_wheel`): brute-force search over all integer-percentage combinations with branch pruning. Hard constraint: every active sector ≥ 1%. Solutions are then scored (highest is best) by: (1) probability descends with sector value, (2) every sector ≥ 3%, (3) probabilities divisible by 5, (4) closeness to the EV midpoint.
