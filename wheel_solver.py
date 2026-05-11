@@ -503,9 +503,16 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
 
     # ---- Power-law weight function ----------------------------------------
     def compute_probs_and_ev(k):
-        """For exponent k, compute raw probabilities and EV."""
-        # weight[i] = (n - i) ** k   (i=0 is cheapest → highest weight)
-        weights = [(n - i) ** k for i in range(n)]
+        """For exponent k, compute raw probabilities and EV.
+
+        k >= 0: weight[i] = (n - i) ** k   → cheap sectors heaviest → EV ≤ mean
+        k <  0: weight[i] = (i + 1) ** |k| → pricey sectors heaviest → EV ≥ mean
+        k == 0: uniform → EV == mean
+        """
+        if k >= 0:
+            weights = [(n - i) ** k for i in range(n)]
+        else:
+            weights = [(i + 1) ** (-k) for i in range(n)]
         w_sum = sum(weights)
         raw_probs = [w / w_sum * budget for w in weights]
 
@@ -532,10 +539,10 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
         return clamped, ev
 
     # ---- Binary search on exponent k to hit target EV ---------------------
-    # k > 1 → steeper = more weight on cheap sectors → lower EV
-    # k < 1 (→ 0) → flatter = more uniform → higher EV (if expensive sectors exist)
-    # k = 1 → linear
-    k_lo, k_hi = 0.01, 20.0
+    # Large positive k → weight piles onto the cheapest sectors  → low EV
+    # k → 0            → uniform                                  → EV == mean
+    # Large negative k → weight piles onto the priciest sectors   → high EV
+    k_lo, k_hi = -20.0, 20.0
 
     _, ev_at_lo = compute_probs_and_ev(k_lo)
     _, ev_at_hi = compute_probs_and_ev(k_hi)
@@ -592,8 +599,6 @@ def solve_wheel_precise(wheel_cfg, precision=0.01, min_prob=1.0):
         found = False
         for offset in [0.01, -0.01, 0.05, -0.05, 0.1, -0.1, 0.5, -0.5]:
             test_k = best_k + offset
-            if test_k <= 0:
-                continue
             test_raw, _ = compute_probs_and_ev(test_k)
             test_rounded = _largest_remainder_round(test_raw, budget, precision)
             test_ev = fixed_ev + sum(

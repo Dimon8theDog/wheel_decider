@@ -8,7 +8,7 @@ Given a set of wheel sectors with reward values and a target bonus cost, the sol
 
 - **Two solvers**: brute-force integer-percentage solver and a faster parametric power-law solver with decimal precision
 - **Interactive GUI** (Tkinter) for designing and tuning wheels in real time
-- **Auto-generation** of sector rewards from a single bonus cost + spread slider
+- **Auto-generation** of a varied sector pool (free spins / high-bet free spins / super spins / cash) from a single bonus cost + spread slider
 - **CSV export** for integration with CRM / game config pipelines
 - **JSON/YAML config** support for batch processing multiple wheels via CLI
 - **Configurable undershoot range** (default 5–8%) to control house edge
@@ -76,7 +76,7 @@ Reward-type rates used by the GUI auto-fill:
 
 **Integer solver** (`solve_wheel`): brute-force search over all integer-percentage combinations with branch pruning. Hard constraint: every active sector ≥ 1%. Solutions are then scored (highest is best) by: (1) probability descends with sector value, (2) every sector ≥ 3%, (3) probabilities divisible by 5, (4) closeness to the EV midpoint.
 
-**Precise solver** (`solve_wheel_precise`): fits a power-law weight model `w[i] = (n - i)^k` across sectors sorted by value, then binary-searches exponent `k` to hit the target EV. Probabilities are rounded via largest-remainder to preserve the exact sum.
+**Precise solver** (`solve_wheel_precise`): fits a power-law weight model across sectors sorted by value — `w[i] = (n - i)^k` for `k ≥ 0` (weight toward cheap sectors, EV below the mean) or `w[i] = (i + 1)^|k|` for `k < 0` (weight toward expensive sectors, EV above the mean) — then binary-searches `k` to hit the target EV. Probabilities are rounded via largest-remainder to preserve the exact sum.
 
 ## Dependencies
 

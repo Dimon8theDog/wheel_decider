@@ -22,21 +22,46 @@ from wheel_solver import solve_wheel_precise
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-FS_RATE = 0.20
-MAX_FS = 200
-MAX_FS_EUR = MAX_FS * FS_RATE   # €40
+FS_RATE = 0.20      # Free Spins — €/spin
+HB_FS_RATE = 0.50   # High-Bet Free Spins — €/spin
+SS_RATE = 2.00      # Super Spins — €/spin
 
-HB_FS_RATE = 0.50
-MAX_HB_FS = 100
-MAX_HB_FS_EUR = MAX_HB_FS * HB_FS_RATE   # €50
 
-SS_RATE = 2.00
-MAX_SS = 50
-MAX_SS_EUR = MAX_SS * SS_RATE   # €100
+def _nice_counts(max_count):
+    """'Nice-looking' spin counts from 5 up to *max_count* (coarser as they grow)."""
+    counts, c = [], 5
+    while c <= max_count:
+        counts.append(c)
+        if c < 50:
+            c += 5
+        elif c < 200:
+            c += 10
+        elif c < 500:
+            c += 25
+        else:
+            c += 50
+    return counts
 
-NICE_FS = [5, 10, 15, 20, 25, 50, 75, 100, 125, 150, 175, 200]
-NICE_HB_FS = [5, 10, 15, 20, 25, 50, 75, 100]
-NICE_SS = [5, 10, 15, 20, 25, 30, 40, 50]
+
+# Per-family nice counts. Caps are deliberate: FS stays "small-ish", HB FS
+# mid-range, SS is the headline type that can reach big EUR values.
+NICE_FS = _nice_counts(300)        # €1 .. €60
+NICE_HB_FS = _nice_counts(500)     # €2.50 .. €250
+NICE_SS = _nice_counts(500)        # €10 .. €1000
+
+# (family-name, €/spin, nice-count table) in cheap → flashy order.
+REWARD_FAMILIES = [
+    ("FS", FS_RATE, NICE_FS),
+    ("HB FS", HB_FS_RATE, NICE_HB_FS),
+    ("SS", SS_RATE, NICE_SS),
+]
+
+MAX_FS = NICE_FS[-1]
+MAX_HB_FS = NICE_HB_FS[-1]
+MAX_SS = NICE_SS[-1]
+MAX_FS_EUR = MAX_FS * FS_RATE
+MAX_HB_FS_EUR = MAX_HB_FS * HB_FS_RATE
+MAX_SS_EUR = MAX_SS * SS_RATE
 
 MIN_SECTORS = 3
 MAX_SECTORS = 12
@@ -189,19 +214,16 @@ def parse_reward_label(label):
 # Snap candidates for auto-generation
 # ---------------------------------------------------------------------------
 def _snap_candidates(raw_eur):
-    """All snap options across reward types, sorted by closeness to raw_eur."""
-    candidates = []
-    fs_bias = 0.30
+    """All snap options across reward families + cash, nearest first.
 
-    for fs in NICE_FS:
-        val = fs * FS_RATE
-        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} FS"))
-    for fs in NICE_HB_FS:
-        val = fs * HB_FS_RATE
-        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{fs} HB FS"))
-    for ss in NICE_SS:
-        val = ss * SS_RATE
-        candidates.append((abs(val - raw_eur) + fs_bias, val, f"{ss} SS"))
+    Returns a list of (distance, eur_value, label, family) tuples sorted by
+    distance to *raw_eur*. *family* is one of "FS", "HB FS", "SS", "EUR".
+    """
+    candidates = []
+    for fam, rate, nice in REWARD_FAMILIES:
+        for c in nice:
+            val = c * rate
+            candidates.append((abs(val - raw_eur), val, f"{c} {fam}", fam))
 
     if raw_eur <= 50:
         step = 5
@@ -212,14 +234,30 @@ def _snap_candidates(raw_eur):
     else:
         step = 50
     base = max(round(raw_eur / step) * step, step)
-    for offset in [0, -step, step, -2 * step, 2 * step]:
+    for offset in (0, -step, step, -2 * step, 2 * step):
         eur = base + offset
         if eur >= step:
             candidates.append((abs(eur - raw_eur), float(eur),
-                               f"\u20ac{int(eur)}"))
+                               f"\u20ac{int(eur)}", "EUR"))
 
     candidates.sort(key=lambda x: x[0])
     return candidates
+
+
+def _usable_families(value):
+    """Reward families whose nearest 'nice' amount lands within ~30% of *value*.
+
+    Returned cheap \u2192 flashy, always ending with "EUR" (cash fits anything).
+    Used to decide which families a sector can rotate through without dragging
+    its value too far from the intended spot.
+    """
+    fams = []
+    for fam, rate, nice in REWARD_FAMILIES:
+        best = min(nice, key=lambda c: abs(c * rate - value))
+        if abs(best * rate - value) <= value * 0.30:
+            fams.append(fam)
+    fams.append("EUR")
+    return fams
 
 
 # ---------------------------------------------------------------------------
@@ -228,12 +266,17 @@ def _snap_candidates(raw_eur):
 def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
                      spread=DEFAULT_SPREAD, num_disabled=DEFAULT_DISABLED,
                      disabled_in_spread=True):
-    """Auto-generate sector rewards for a given bonus cost and spread."""
+    """Auto-generate a varied sector pool for a given bonus cost and spread.
+
+    Active sectors are rotated across the reward families (FS / HB FS / SS /
+    cash) that each sector's value can support, so the wheel reads as a busy
+    mix instead of a column of cash amounts.
+    """
     min_ratio, max_ratio = _spread_to_ratios(spread)
     num_disabled = max(0, min(num_disabled, num_sectors - 1))
     num_active = num_sectors - num_disabled
 
-    active_ratios = _compute_ratios(num_active, min_ratio, max_ratio)
+    active_ratios = sorted(_compute_ratios(num_active, min_ratio, max_ratio))
 
     if num_disabled == 0:
         dis_ratios = []
@@ -253,24 +296,42 @@ def generate_sectors(target, num_sectors=DEFAULT_NUM_SECTORS,
     used_labels = set()
     sectors = []
 
-    def _pick(ratio, disabled):
-        candidates = _snap_candidates(target * ratio)
-        for _, val, label in candidates:
-            if label not in used_labels:
-                used_labels.add(label)
-                sectors.append({"label": label, "value": val,
-                                "disabled": disabled})
-                return
-        # Fallback: use raw EUR value (bug fix — never skip a sector)
-        raw = target * ratio
-        val = round(raw, 2)
-        label = f"\u20ac{val:.2f}"
-        sectors.append({"label": label, "value": val, "disabled": disabled})
+    def _pick(raw, disabled, prefer):
+        candidates = _snap_candidates(raw)
+        chosen = None
+        if prefer:
+            for _, val, label, fam in candidates:
+                if fam == prefer and label not in used_labels:
+                    chosen = (val, label)
+                    break
+        if chosen is None:
+            for _, val, label, fam in candidates:
+                if label not in used_labels:
+                    chosen = (val, label)
+                    break
+        if chosen is None:
+            # Last resort: raw EUR value -- never skip a sector.
+            v = round(raw, 2)
+            chosen = (v, f"\u20ac{v:.2f}")
+        used_labels.add(chosen[1])
+        sectors.append({"label": chosen[1], "value": chosen[0],
+                        "disabled": disabled})
 
+    # Active sectors: walk cheapest -> priciest, advancing one shared rotation
+    # index so neighbouring sectors land on different reward families.
+    rot = 0
     for ratio in active_ratios:
-        _pick(ratio, False)
-    for ratio in dis_ratios:
-        _pick(ratio, True)
+        raw = target * ratio
+        fams = _usable_families(raw)
+        _pick(raw, False, fams[rot % len(fams)])
+        rot += 1
+
+    # Disabled (aspirational) sectors: lean toward the flashy families.
+    for k, ratio in enumerate(dis_ratios):
+        raw = target * ratio
+        fams = _usable_families(raw)
+        order = [f for f in ("SS", "HB FS", "EUR") if f in fams] or ["EUR"]
+        _pick(raw, True, order[k % len(order)])
 
     sectors.sort(key=lambda s: (s["value"], s["disabled"]))
     return sectors
